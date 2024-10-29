@@ -1,69 +1,113 @@
 // src/components/CraftingSystem.jsx
 import React, { useState, useEffect } from 'react';
-import { Timer } from 'lucide-react';
-import { useCraftingLevel } from '../hooks/useCraftingLevel';  // これを追加
-
-
-// 定数を別のオブジェクトとして定義
-const MATERIALS = {
-  MAGIC_INK: {
-    id: 'MAGIC_INK',
-    name: '魔法の墨',
-    basePrice: 50,
-    marketInfluence: 0.8
-  },
-  ENCHANTED_PAPER: {
-    id: 'ENCHANTED_PAPER',
-    name: '魔法の紙',
-    basePrice: 30,
-    marketInfluence: 0.5
-  },
-  SPIRIT_ESSENCE: {
-    id: 'SPIRIT_ESSENCE',
-    name: '精霊のエッセンス',
-    basePrice: 100,
-    marketInfluence: 1.2
-  }
-};
-
-const RECIPES = {
-  1: {
-    materials: {
-      MAGIC_INK: 1,
-      ENCHANTED_PAPER: 2
-    },
-    craftingTime: 5000,
-    power: 5
-  },
-  2: {
-    materials: {
-      MAGIC_INK: 2,
-      ENCHANTED_PAPER: 3,
-      SPIRIT_ESSENCE: 1
-    },
-    craftingTime: 10000,
-    power: 15
-  },
-  3: {
-    materials: {
-      MAGIC_INK: 3,
-      ENCHANTED_PAPER: 4,
-      SPIRIT_ESSENCE: 2
-    },
-    craftingTime: 15000,
-    power: 40
-  }
-};
+import { Timer, Lock } from 'lucide-react';
+import { useCraftingLevel } from '../hooks/useCraftingLevel';
+import { 
+  MATERIALS, 
+  RECIPES, 
+  MAGIC_ELEMENTS, 
+  LEVEL_REQUIREMENTS 
+} from '../constants/magicSystem';
 
 const CraftingSystem = ({ gameState, setGameState }) => {
-    const { level, exp, progress, addExp } = useCraftingLevel();
-    const [showCraftingEffect, setShowCraftingEffect] = useState(false);
-  const [materials, setMaterials] = useState({
-    MAGIC_INK: 0,
-    ENCHANTED_PAPER: 0,
-    SPIRIT_ESSENCE: 0
-  });
+  const { level, exp, progress, addExp } = useCraftingLevel();
+  const [showCraftingEffect, setShowCraftingEffect] = useState(false);
+  const [materials, setMaterials] = useState(
+    Object.keys(MATERIALS).reduce((acc, key) => ({ ...acc, [key]: 0 }), {})
+  );
   const [craftingQueue, setCraftingQueue] = useState([]);
+
+  // レベルに応じて利用可能なレシピを取得
+  const getAvailableRecipes = () => {
+    const availableElements = Object.entries(LEVEL_REQUIREMENTS.MAGIC_TIERS)
+      .filter(([_, tier]) => tier.level <= level)
+      .flatMap(([_, tier]) => tier.elements);
+
+    const availableRanks = Object.entries(LEVEL_REQUIREMENTS.BOOK_RANKS)
+      .filter(([_, rank]) => rank.level <= level)
+      .map(([key, _]) => key);
+
+    return Object.entries(RECIPES).filter(([_, recipe]) => {
+      return availableElements.includes(recipe.element) && 
+             availableRanks.includes(recipe.rank) &&
+             recipe.levelRequired <= level;
+    });
+  };
+
+  const MaterialItem = ({ material, materials, gameState, buyMaterial, calculateMaterialPrice }) => (
+    <div className="bg-gray-50 p-2 rounded">
+      <div className="flex justify-between items-center">
+        <div className="flex items-center gap-2">
+          <span className="text-xl">{material.icon}</span>
+          <div>
+            <h3 className="text-sm font-medium text-gray-700">{material.name}</h3>
+            <p className="text-xs text-gray-500">{material.description}</p>
+            <p className="text-xs text-gray-500">所持数: {materials[material.id]}</p>
+          </div>
+        </div>
+        <button
+          onClick={() => buyMaterial(material.id)}
+          disabled={gameState.gold < calculateMaterialPrice(material)}
+          className="bg-green-500 text-white px-3 py-1 rounded text-sm hover:bg-green-600 
+            transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {calculateMaterialPrice(material)}G
+        </button>
+      </div>
+    </div>
+  );
+
+  const RecipeItem = ({ recipe, recipeId, materials, level, startCrafting }) => {
+    const isLocked = recipe.levelRequired > level;
+    const element = MAGIC_ELEMENTS[recipe.element];
+  
+    return (
+      <div className={`relative ${element.bgColor} p-3 rounded-lg border ${element.borderColor}`}>
+        {isLocked ? (
+          <div className="absolute inset-0 bg-gray-900/50 rounded-lg flex items-center justify-center">
+            <div className="text-center text-white">
+              <Lock className="w-6 h-6 mx-auto mb-1" />
+              <p className="text-sm">レベル{recipe.levelRequired}で解放</p>
+            </div>
+          </div>
+        ) : null}
+  
+        <div className="flex items-center gap-2 mb-2">
+          <span className="text-2xl">{element.icon}</span>
+          <div>
+            <h3 className={`font-medium ${element.color}`}>{recipe.name}</h3>
+            <p className="text-xs text-gray-600">{recipe.description}</p>
+          </div>
+        </div>
+  
+        <div className="grid grid-cols-2 gap-1 mb-2">
+          {Object.entries(recipe.materials).map(([materialId, required]) => (
+            <p key={materialId} className="text-xs text-gray-600">
+              {MATERIALS[materialId].name}:
+              <span className={materials[materialId] >= required ? 'text-green-500' : 'text-red-500'}>
+                {` ${materials[materialId] || 0}/${required}`}
+              </span>
+            </p>
+          ))}
+        </div>
+  
+        <button
+          onClick={() => startCrafting(recipeId)}
+          disabled={isLocked || Object.entries(recipe.materials).some(
+            ([materialId, required]) => materials[materialId] < required
+          )}
+          className="w-full bg-blue-500 text-white px-3 py-1 rounded text-sm hover:bg-blue-600 
+            transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          作成開始
+        </button>
+      </div>
+    );
+  };
+
+  const getCraftingTimeReduction = () => {
+    return Math.max(0.5, 1 - (level * 0.05)); // レベルごとに5%短縮（最大50%まで）
+  };
 
   const getQualityBonus = () => {
     return 1 + (level * 0.1); // レベルごとに10%ずつ品質向上
@@ -74,19 +118,15 @@ const CraftingSystem = ({ gameState, setGameState }) => {
     setTimeout(() => setShowCraftingEffect(false), 2000);
   };
 
-  // 素材の価格計算
   const calculateMaterialPrice = (material) => {
     return Math.round(material.basePrice * (1 + gameState.marketTrend * material.marketInfluence));
   };
 
-  // 素材購入
   const buyMaterial = (materialId) => {
     const material = MATERIALS[materialId];
     const price = calculateMaterialPrice(material);
 
-    if (gameState.gold < price) {
-      return;
-    }
+    if (gameState.gold < price) return;
 
     setGameState(prev => ({
       ...prev,
@@ -99,15 +139,13 @@ const CraftingSystem = ({ gameState, setGameState }) => {
     }));
   };
 
-  // 魔術書作成開始
   const startCrafting = (recipeId) => {
     const recipe = RECIPES[recipeId];
-    
+    if (!recipe || recipe.levelRequired > level) return;
+
     // 素材チェック
     for (const [materialId, required] of Object.entries(recipe.materials)) {
-      if (materials[materialId] < required) {
-        return;
-      }
+      if (materials[materialId] < required) return;
     }
 
     // 素材を消費
@@ -119,11 +157,15 @@ const CraftingSystem = ({ gameState, setGameState }) => {
       return newMaterials;
     });
 
+    // レベルに応じた作成時間の計算
+    const adjustedCraftingTime = recipe.craftingTime * getCraftingTimeReduction();
+
     // 作成キューに追加
     setCraftingQueue(prev => [...prev, {
       recipeId,
       startTime: Date.now(),
-      craftingTime: recipe.craftingTime
+      craftingTime: adjustedCraftingTime,
+      recipe: recipe
     }]);
   };
 
@@ -133,145 +175,99 @@ const CraftingSystem = ({ gameState, setGameState }) => {
 
     const timer = setInterval(() => {
       const currentTime = Date.now();
-      const completedItems = [];
-      const remainingQueue = [];
-
-      craftingQueue.forEach(item => {
-        if (currentTime - item.startTime >= item.craftingTime) {
-          completedItems.push(item);
-          addExp(item.recipeId * 10); // レシピの難易度に応じて経験値を獲得
-          showCompletionEffect(); // 完成エフェクトを表示
-        } else {
-          remainingQueue.push(item);
-        }
-      });
+      const { completedItems, remainingQueue } = craftingQueue.reduce(
+        (acc, item) => {
+          if (currentTime - item.startTime >= item.craftingTime) {
+            acc.completedItems.push(item);
+          } else {
+            acc.remainingQueue.push(item);
+          }
+          return acc;
+        },
+        { completedItems: [], remainingQueue: [] }
+      );
 
       if (completedItems.length > 0) {
         setCraftingQueue(remainingQueue);
+        
+        completedItems.forEach(item => {
+          addExp(parseInt(item.recipe.basePower) * 2);
+          showCompletionEffect();
+        });
+
         setGameState(prev => ({
           ...prev,
           inventory: completedItems.reduce((inv, item) => {
-            const bookId = parseInt(item.recipeId);
             const qualityBonus = getQualityBonus();
-            const existingBook = inv.find(b => b.id === bookId);
-            
-            const enhancedBook = {
-              id: bookId,
-              name: `${bookId === 1 ? '初級' : bookId === 2 ? '中級' : '上級'}魔術書`,
-              basePrice: Math.floor(RECIPES[bookId].power * 20 * qualityBonus),
-              power: Math.floor(RECIPES[bookId].power * qualityBonus),
+            const element = MAGIC_ELEMENTS[item.recipe.element];
+            const power = Math.floor(item.recipe.basePower * qualityBonus * element.basePower);
+
+            const newBook = {
+              id: item.recipeId,
+              name: item.recipe.name,
+              element: item.recipe.element,
+              basePrice: Math.floor(power * 20),
+              power: power,
               quality: level,
               quantity: 1,
-              crafted: true // 作成した本であることを示すフラグ
+              crafted: true,
+              description: item.recipe.description
             };
 
-            if (existingBook && existingBook.quality === level) {
-              return inv.map(b => b.id === bookId ? { ...b, quantity: b.quantity + 1 } : b);
+            const existingBook = inv.find(b => 
+              b.id === item.recipeId && 
+              b.quality === level && 
+              b.element === item.recipe.element
+            );
+
+            if (existingBook) {
+              return inv.map(b => 
+                b.id === item.recipeId && 
+                b.quality === level && 
+                b.element === item.recipe.element
+                  ? { ...b, quantity: b.quantity + 1 }
+                  : b
+              );
             }
-            return [...inv, enhancedBook];
+            return [...inv, newBook];
           }, prev.inventory)
         }));
       }
-    }, 1000);
+    }, 100);
 
     return () => clearInterval(timer);
-  }, [craftingQueue, setGameState, level]);
+  }, [craftingQueue, setGameState, level, addExp]);
+
+  // MaterialItemコンポーネントとRecipeItemコンポーネントは変更なし...
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4 relative">
-      {/* 熟練度表示 */}
-      <div className="col-span-2 bg-white rounded-lg shadow p-4">
-        <div className="flex items-center justify-between mb-2">
-          <h3 className="font-bold text-lg">魔術書作成レベル: {level}</h3>
-          <span className="text-sm text-gray-600">次のレベルまで: {Math.floor(progress)}%</span>
-        </div>
-        <div className="w-full bg-gray-200 rounded-full h-2">
-          <div
-            className="bg-purple-500 h-2 rounded-full transition-all duration-500"
-            style={{ width: `${progress}%` }}
-          />
-        </div>
-      </div>
-  
-      {/* 素材購入セクション */}
-      <div className="bg-white rounded-lg shadow p-4">
-        <h2 className="text-xl font-bold mb-4 text-gray-800">素材購入</h2>
-        <div className="space-y-4">
-          {Object.values(MATERIALS).map((material) => (
-            <div key={material.id} className="bg-gray-50 p-4 rounded-lg">
-              <div className="flex justify-between items-center">
-                <div>
-                  <h3 className="font-bold text-gray-700">{material.name}</h3>
-                  <p className="text-sm text-gray-500">所持数: {materials[material.id]}</p>
-                </div>
-                <button
-                  onClick={() => buyMaterial(material.id)}
-                  disabled={gameState.gold < calculateMaterialPrice(material)}
-                  className={`bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600 transition-colors
-                    ${gameState.gold < calculateMaterialPrice(material) ? 'opacity-50 cursor-not-allowed' : ''}`}
-                >
-                  購入 ({calculateMaterialPrice(material)}G)
-                </button>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-  
-      {/* 魔術書作成セクション */}
-      <div className="bg-white rounded-lg shadow p-4">
-        <h2 className="text-xl font-bold mb-4 text-gray-800">魔術書作成</h2>
-        <div className="space-y-4">
-          {Object.entries(RECIPES).map(([recipeId, recipe]) => (
-            <div key={recipeId} className="bg-gray-50 p-4 rounded-lg">
-              <h3 className="font-bold text-gray-700">
-                {`${recipeId === '1' ? '初級' : recipeId === '2' ? '中級' : '上級'}魔術書`}
-              </h3>
-              <div className="mt-2 space-y-1">
-                {Object.entries(recipe.materials).map(([materialId, required]) => (
-                  <p key={materialId} className="text-sm text-gray-600">
-                    {MATERIALS[materialId].name}: {required}個
-                    <span className={`ml-2 ${materials[materialId] >= required ? 'text-green-500' : 'text-red-500'}`}>
-                      ({materials[materialId] || 0}/{required})
-                    </span>
-                  </p>
-                ))}
-              </div>
-              <button
-                onClick={() => startCrafting(recipeId)}
-                disabled={Object.entries(recipe.materials).some(
-                  ([materialId, required]) => materials[materialId] < required
-                )}
-                className={`mt-3 w-full bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 transition-colors
-                  ${Object.entries(recipe.materials).some(
-                    ([materialId, required]) => materials[materialId] < required
-                  ) ? 'opacity-50 cursor-not-allowed' : ''}`}
-              >
-                作成開始
-              </button>
-            </div>
-          ))}
-        </div>
-      </div>
-  
-      {/* 作成キュー */}
+    <div className="space-y-4">
+      {/* 作成キュー表示 */}
       {craftingQueue.length > 0 && (
-        <div className="col-span-2 bg-white rounded-lg shadow p-4">
-          <h2 className="text-xl font-bold mb-4 text-gray-800">作成中の魔術書</h2>
-          <div className="space-y-4">
+        <div className="bg-white rounded-lg shadow-sm p-3">
+          <div className="space-y-2">
             {craftingQueue.map((item, index) => {
-              const progress = Math.min(100, ((Date.now() - item.startTime) / item.craftingTime) * 100);
+              const elapsedTime = Date.now() - item.startTime;
+              const remainingTime = Math.max(0, item.craftingTime - elapsedTime);
+              const progress = Math.min(100, (elapsedTime / item.craftingTime) * 100);
+              const element = MAGIC_ELEMENTS[item.recipe.element];
+              
               return (
-                <div key={index} className="bg-gray-50 p-4 rounded-lg">
-                  <div className="flex items-center gap-2 mb-2">
-                    <Timer className="w-5 h-5 text-blue-500" />
+                <div key={index} className={`${element.bgColor} p-2 rounded`}>
+                  <div className="flex items-center gap-2 mb-1 text-sm">
+                    <Timer className={`w-4 h-4 ${element.color}`} />
                     <span className="font-medium">
-                      {`${item.recipeId === 1 ? '初級' : item.recipeId === 2 ? '中級' : '上級'}魔術書`}
+                      {`${item.recipe.name} 作成中...`}
+                    </span>
+                    <span className="text-xs text-gray-500">
+                      {remainingTime > 0 
+                        ? `残り${Math.ceil(remainingTime / 1000)}秒`
+                        : '完成間近'}
                     </span>
                   </div>
-                  <div className="w-full bg-gray-200 rounded-full h-2">
+                  <div className="w-full bg-gray-200 rounded-full h-1.5">
                     <div
-                      className="bg-blue-500 h-2 rounded-full transition-all duration-1000"
+                      className={`h-1.5 rounded-full transition-all duration-1000 ${element.borderColor.replace('border', 'bg')}`}
                       style={{ width: `${progress}%` }}
                     />
                   </div>
@@ -281,7 +277,56 @@ const CraftingSystem = ({ gameState, setGameState }) => {
           </div>
         </div>
       )}
-  
+
+      {/* レベル表示 */}
+      <div className="bg-white rounded-lg shadow-sm p-3">
+        <div className="flex items-center justify-between mb-1">
+          <h3 className="text-sm font-medium">魔術書作成レベル: {level}</h3>
+          <span className="text-xs text-gray-600">次のレベルまで: {Math.floor(progress)}%</span>
+        </div>
+        <div className="w-full bg-gray-200 rounded-full h-1.5">
+          <div
+            className="bg-purple-500 h-1.5 rounded-full transition-all duration-500"
+            style={{ width: `${progress}%` }}
+          />
+        </div>
+      </div>
+
+      {/* 素材とレシピセクション */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+  <div className="bg-white rounded-lg shadow-sm p-3">
+    <h2 className="text-base font-bold mb-3 text-gray-800">素材購入</h2>
+    <div className="space-y-3">
+      {Object.values(MATERIALS).map(material => (
+        <MaterialItem 
+          key={material.id}
+          material={material}
+          materials={materials}
+          gameState={gameState}
+          buyMaterial={buyMaterial}
+          calculateMaterialPrice={calculateMaterialPrice}
+        />
+      ))}
+    </div>
+  </div>
+
+  <div className="bg-white rounded-lg shadow-sm p-3">
+    <h2 className="text-base font-bold mb-3 text-gray-800">魔術書作成</h2>
+    <div className="space-y-3">
+      {getAvailableRecipes().map(([recipeId, recipe]) => (
+        <RecipeItem 
+          key={recipeId} 
+          recipe={recipe} 
+          recipeId={recipeId}
+          materials={materials}
+          level={level}
+          startCrafting={startCrafting}
+        />
+      ))}
+    </div>
+  </div>
+</div>
+
       {/* 完成エフェクト */}
       {showCraftingEffect && (
         <div className="fixed inset-0 flex items-center justify-center pointer-events-none z-50">
