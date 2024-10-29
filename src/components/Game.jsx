@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Shield, Sword, TrendingUp, Timer, Coins } from 'lucide-react';
 import Inventory from './Inventory';
+import EventManager from './EventManager';
+
 
 // Game Constants
 const INITIAL_STATE = {
@@ -10,6 +12,36 @@ const INITIAL_STATE = {
   MARKET_UPDATE_INTERVAL: 15000,
   EVENT_CHECK_INTERVAL: 30000
 };
+
+const GameOver = ({ gameState, setGameState }) => (
+  <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-b from-gray-900 to-gray-800 text-white">
+    <h1 className="text-4xl mb-8 font-bold">死の商人</h1>
+    <div className="mb-8 text-center max-w-md">
+      <p className="mb-4">あなたは均衡を崩してしまいました。</p>
+      <p className="mb-4">永遠の争いを望んだ死の商人は、その役目を終えたのです。</p>
+      <p>最終結果：{Math.floor(gameState.elapsedTime / 60)}分{gameState.elapsedTime % 60}秒</p>
+      <p>獲得金額：{gameState.gold}G</p>
+    </div>
+    <button
+      onClick={() => {
+        setGameState({
+          gameStarted: false,
+          gold: INITIAL_STATE.INITIAL_GOLD,
+          humanPower: INITIAL_STATE.HUMAN_POWER,
+          monsterPower: INITIAL_STATE.MONSTER_POWER,
+          marketTrend: 0,
+          volatility: 0.2,
+          inventory: [],
+          elapsedTime: 0
+        });
+      }}
+      className="px-8 py-4 bg-blue-600 hover:bg-blue-700 rounded-lg font-bold transition-colors"
+    >
+      もう一度プレイ
+    </button>
+  </div>
+);
+
 
 // Magic Book Definitions
 const MAGIC_BOOKS = [
@@ -38,8 +70,8 @@ const MAGIC_BOOKS = [
 
 const MagicMerchantGame = () => {
   // Game States
-  const [gameStarted, setGameStarted] = useState(false);
-  const [gameState, setGameState] = useState({
+  const [gameState, setGameState] = useState({  // この行を追加
+    gameStarted: false,  // この行を追加
     gold: INITIAL_STATE.INITIAL_GOLD,
     humanPower: INITIAL_STATE.HUMAN_POWER,
     monsterPower: INITIAL_STATE.MONSTER_POWER,
@@ -49,9 +81,11 @@ const MagicMerchantGame = () => {
     elapsedTime: 0
   });
 
+  
+
   // 時間経過の処理
 useEffect(() => {
-  if (!gameStarted) return;
+  if (!gameState.gameStarted) return;
 
   const timer = setInterval(() => {
     setGameState(prev => ({
@@ -61,11 +95,11 @@ useEffect(() => {
   }, 1000);
 
   return () => clearInterval(timer);
-}, [gameStarted]);
+}, [gameState.gameStarted]);
 
 // 市場変動の処理
 useEffect(() => {
-  if (!gameStarted) return;
+  if (!gameState.gameStarted) return;
 
   const marketTimer = setInterval(() => {
     setGameState(prev => {
@@ -79,11 +113,11 @@ useEffect(() => {
   }, INITIAL_STATE.MARKET_UPDATE_INTERVAL);
 
   return () => clearInterval(marketTimer);
-}, [gameStarted]);
+}, [gameState.gameStarted]);
 
 // 自然な勢力変動の処理
 useEffect(() => {
-  if (!gameStarted) return;
+  if (!gameState.gameStarted) return;
 
   const balanceTimer = setInterval(() => {
     setGameState(prev => {
@@ -101,7 +135,7 @@ useEffect(() => {
   }, 5000);
 
   return () => clearInterval(balanceTimer);
-}, [gameStarted]);
+}, [gameState.gameStarted]);
 
   // Start Screen Component
   const StartScreen = () => (
@@ -113,9 +147,9 @@ useEffect(() => {
         <p>現在、人間勢力は劣勢です。しかし、それは新たなビジネスチャンスかもしれません...</p>
       </div>
       <button
-        onClick={() => setGameStarted(true)}
-        className="px-8 py-4 bg-blue-600 hover:bg-blue-700 rounded-lg font-bold transition-colors"
-      >
+  onClick={() => setGameState(prev => ({ ...prev, gameStarted: true }))}
+  className="px-8 py-4 bg-blue-600 hover:bg-blue-700 rounded-lg font-bold transition-colors"
+>
         ゲームを開始
       </button>
     </div>
@@ -138,12 +172,12 @@ useEffect(() => {
               <span className="text-blue-400 flex items-center"><Shield className="w-4 h-4 mr-1" />{gameState.humanPower}%</span>
               <span className="text-red-400 flex items-center"><Sword className="w-4 h-4 mr-1" />{gameState.monsterPower}%</span>
             </div>
-            <div className="w-full bg-gray-700 h-2 rounded-full overflow-hidden">
-              <div 
-                className="h-full bg-blue-500 transition-all duration-500"
-                style={{ width: `${gameState.humanPower}%` }}
-              />
-            </div>
+            <div className="w-full bg-red-500 h-2 rounded-full overflow-hidden">
+  <div 
+    className="h-full bg-blue-500 transition-all duration-500"
+    style={{ width: `${gameState.humanPower}%` }}
+  />
+</div>
           </div>
 
           <div className="bg-gray-800 p-4 rounded-lg border border-gray-700">
@@ -164,8 +198,12 @@ useEffect(() => {
     </div>
   );
 
-  if (!gameStarted) {
+  if (!gameState.gameStarted) {
     return <StartScreen />;
+  }
+
+  if (gameState.humanPower <= 0 || gameState.humanPower >= 100) {
+    return <GameOver gameState={gameState} setGameState={setGameState} />;
   }
 
   return (
@@ -212,6 +250,10 @@ useEffect(() => {
       }
     }}
   />
+        <EventManager 
+        gameState={gameState}
+        setGameState={setGameState}
+      />
 </main>
     </div>
   );
