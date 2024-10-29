@@ -1,3 +1,38 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* index.cssの既存のimportの後に追加 */
+@keyframes craftComplete {
+    0% {
+      opacity: 0;
+      transform: scale(0.8) translateY(20px);
+    }
+    50% {
+      opacity: 1;
+      transform: scale(1.1) translateY(0);
+    }
+    100% {
+      opacity: 0;
+      transform: scale(1) translateY(-20px);
+    }
+  }
+  
+  .animate-craftComplete {
+    animation: craftComplete 2s ease-out forwards;
+  }
+  
+  @keyframes notification {
+    0% {
+      transform: translateY(-100%);
+      opacity: 0;
+    }
+    100% {
+      transform: translateY(0);
+      opacity: 1;
+    }
+  }
+  
+  .animate-notification {
+    animation: notification 0.3s ease-out forwards;
+  }

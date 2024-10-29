@@ -1,20 +1,21 @@
-<!doctype html>
-<html lang="en">
+<!DOCTYPE html>
+<html lang="ja">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Vite + React</title>
-    <script>
-      window.console.error = (...args) => {
-        if (!args[0].includes('message channel closed')) {
-          console.error.apply(console, args);
-        }
-      };
-    </script>
+    <title>Magic Merchant Game</title>
   </head>
   <body>
     <div id="root"></div>
+    <script>
+      // Chrome拡張機能のエラーを抑制
+      window.addEventListener('error', (e) => {
+        if (e.message.includes('message channel closed')) {
+          e.stopPropagation();
+          e.preventDefault();
+        }
+      });
+    </script>
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>
