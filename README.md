@@ -1,8 +1,29 @@
-# React + Vite
+# 魔術商人（Magic Merchant Game）
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+## プロジェクト概要
+プレイヤーは魔術書を売る商人となり、人間側と魔物側の勢力がどちらも滅亡しないようにバランスを保ちながら、最大限の利益を上げることを目指すゲーム。
 
-Currently, two official plugins are available:
+## 実装状況
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react/README.md) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+### 完了した機能
+- ✅ 基本的なゲームUI
+- ✅ 魔術書の売買システム
+- ✅ 時間経過システム
+- ✅ 市場変動システム
+- ✅ 勢力バランスシステム
+
+### 実装予定の機能
+- ⏳ イベントシステム
+- ⏳ 予兆システム
+- ⏳ ゲームオーバー条件の実装
+
+## 開発履歴
+- 2024-02-13: プロジェクト開始
+  - 基本的なUI実装
+  - 売買システム実装
+  - 時間経過システム実装
+
+## 技術スタック
+- React
+- Tailwind CSS
+- Vite
