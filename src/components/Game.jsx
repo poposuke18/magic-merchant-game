@@ -7,7 +7,7 @@ import { usePowerAnimation } from '../hooks/usePowerAnimation';
 import CraftingSystem from './CraftingSystem';
 import { motion, AnimatePresence } from 'framer-motion';
 import { MAGIC_ELEMENTS } from '../constants/magicSystem';
-
+import { SEASONS, SEASONAL_EVENTS, TIME_CONSTANTS } from '../constants/seasonSystem';
 
 
 // ゲームの定数
@@ -134,14 +134,15 @@ const GameOver = ({ gameState, onRestart }) => (
   </div>
 );
 
-// GameHeader コンポーネント
 const GameHeader = ({ gameState }) => {
   const { currentHumanPower } = usePowerAnimation(gameState.humanPower);
+  const season = SEASONS[gameState.currentSeason];
   
   return (
     <div className="fixed top-0 left-0 right-0 bg-gray-900 text-white z-50 shadow-lg">
       <div className="container mx-auto p-4">
-        <div className="grid grid-cols-4 gap-4">
+        <div className="grid grid-cols-5 gap-4"> {/* 5列に変更 */}
+          {/* 所持金 */}
           <div className="bg-gray-800 p-4 rounded-lg border border-gray-700">
             <div className="flex items-center space-x-2">
               <Coins className="text-yellow-500" />
@@ -149,18 +150,20 @@ const GameHeader = ({ gameState }) => {
             </div>
           </div>
 
+          {/* 市場トレンド */}
           <div className="bg-gray-800 p-4 rounded-lg border border-gray-700">
-      <div className="flex items-center space-x-2">
-        <TrendingUp className={gameState.marketTrend >= 0 ? "text-green-500" : "text-red-500"} />
-        <div className="flex flex-col">
-          <span>{Math.abs(gameState.marketTrend * 100).toFixed(1)}%</span>
-          <span className="text-xs text-gray-400">
-            変動率: {(gameState.volatility * 100).toFixed(1)}%
-          </span>
-        </div>
-      </div>
-    </div>
+            <div className="flex items-center space-x-2">
+              <TrendingUp className={gameState.marketTrend >= 0 ? "text-green-500" : "text-red-500"} />
+              <div className="flex flex-col">
+                <span>{Math.abs(gameState.marketTrend * 100).toFixed(1)}%</span>
+                <span className="text-xs text-gray-400">
+                  変動率: {(gameState.volatility * 100).toFixed(1)}%
+                </span>
+              </div>
+            </div>
+          </div>
           
+          {/* 勢力バランス */}
           <div className="bg-gray-800 p-4 rounded-lg border border-gray-700">
             <div className="flex justify-between mb-2">
               <span className="text-blue-400 flex items-center">
@@ -178,13 +181,24 @@ const GameHeader = ({ gameState }) => {
             </div>
           </div>
 
+          {/* 季節表示 */}
           <div className="bg-gray-800 p-4 rounded-lg border border-gray-700">
-            <div className="flex items-center space-x-2">
-              <TrendingUp className={gameState.marketTrend >= 0 ? "text-green-500" : "text-red-500"} />
-              <span>{Math.abs(gameState.marketTrend * 100).toFixed(1)}%</span>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="text-2xl">{season.icon}</span>
+                <div className="flex flex-col">
+                  <span className={`font-bold ${season.color}`}>
+                    {season.name}
+                  </span>
+                  <span className="text-xs text-gray-400">
+                    {gameState.yearCount}年目 {gameState.dayCount + 1}日目
+                  </span>
+                </div>
+              </div>
             </div>
           </div>
 
+          {/* 経過時間 */}
           <div className="bg-gray-800 p-4 rounded-lg border border-gray-700">
             <div className="flex items-center space-x-2">
               <Timer className="text-gray-400" />
@@ -192,6 +206,20 @@ const GameHeader = ({ gameState }) => {
             </div>
           </div>
         </div>
+
+        {/* アクティブなイベントの表示 */}
+        {gameState.activeSeasonalEvents.length > 0 && (
+          <div className="mt-2 flex gap-2">
+            {gameState.activeSeasonalEvents.map(event => (
+              <div key={event.id} 
+                className={`${season.bgColor} px-3 py-1 rounded-full text-sm flex items-center gap-1`}
+              >
+                <span className="text-lg">{season.icon}</span>
+                <span className={season.color}>{event.name}</span>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -200,6 +228,7 @@ const GameHeader = ({ gameState }) => {
 // メインのゲームコンポーネント
 const MagicMerchantGame = () => {
   const [gameState, setGameState] = useState({
+    // 既存の状態
     gameStarted: false,
     gold: INITIAL_STATE.INITIAL_GOLD,
     humanPower: INITIAL_STATE.HUMAN_POWER,
@@ -207,7 +236,18 @@ const MagicMerchantGame = () => {
     marketTrend: 0,
     volatility: 0.2,
     inventory: [],
-    elapsedTime: 0
+    elapsedTime: 0,
+
+    // 新しい状態
+    currentSeason: 'SPRING',
+    dayCount: 0,
+    yearCount: 1,
+    activeSeasonalEvents: [], // 現在発生中の季節イベント
+    weatherCondition: 'CLEAR', // 天候状態
+    reputation: {
+      human: 50,    // 人間側との評判 (0-100)
+      monster: 50   // 魔物側との評判 (0-100)
+    }
   });
 
   // 時間経過の処理
@@ -257,17 +297,123 @@ const MagicMerchantGame = () => {
     return () => clearInterval(balanceTimer);
   }, [gameState.gameStarted]);
 
+   // 時間経過による季節変更の処理
+   useEffect(() => {
+    if (!gameState.gameStarted) return;
+
+    const seasonTimer = setInterval(() => {
+      setGameState(prev => {
+        const newDayCount = prev.dayCount + 1;
+        
+        // 季節の変更判定
+        if (newDayCount >= TIME_CONSTANTS.DAYS_PER_SEASON) {
+          const seasons = Object.keys(SEASONS);
+          const currentSeasonIndex = seasons.indexOf(prev.currentSeason);
+          const nextSeasonIndex = (currentSeasonIndex + 1) % seasons.length;
+          
+          // 年度の変更
+          const newYearCount = nextSeasonIndex === 0 ? prev.yearCount + 1 : prev.yearCount;
+          
+          return {
+            ...prev,
+            currentSeason: seasons[nextSeasonIndex],
+            dayCount: 0,
+            yearCount: newYearCount,
+            // 季節変更時に既存のシーズンイベントをクリア
+            activeSeasonalEvents: []
+          };
+        }
+
+        return {
+          ...prev,
+          dayCount: newDayCount
+        };
+      });
+    }, TIME_CONSTANTS.TICKS_PER_DAY * 1000); // 1日あたりの実時間
+
+    return () => clearInterval(seasonTimer);
+  }, [gameState.gameStarted]);
+
+  // 季節イベントの発生チェック
+  useEffect(() => {
+    if (!gameState.gameStarted) return;
+
+    const eventTimer = setInterval(() => {
+      const currentSeason = SEASONS[gameState.currentSeason];
+      
+      // イベント発生判定
+      if (Math.random() < currentSeason.eventChance) {
+        const possibleEvents = SEASONAL_EVENTS[gameState.currentSeason];
+        const selectedEvent = possibleEvents[Math.floor(Math.random() * possibleEvents.length)];
+        
+        if (selectedEvent && !gameState.activeSeasonalEvents.find(e => e.id === selectedEvent.id)) {
+          setGameState(prev => ({
+            ...prev,
+            activeSeasonalEvents: [...prev.activeSeasonalEvents, {
+              ...selectedEvent,
+              startDay: prev.dayCount,
+              endDay: prev.dayCount + selectedEvent.duration
+            }]
+          }));
+        }
+      }
+    }, 60000); // 1分ごとにイベントチェック
+
+    return () => clearInterval(eventTimer);
+  }, [gameState.gameStarted, gameState.currentSeason]);
+
+   // 需要計算関数の更新
+   const calculateDemand = (element, faction) => {
+    const baseElementDemand = MAGIC_ELEMENTS[element][`${faction}Demand`];
+    const seasonModifier = SEASONS[gameState.currentSeason].elementModifiers[element];
+    
+    // イベントによる修正
+    const eventModifier = gameState.activeSeasonalEvents.reduce((mod, event) => {
+      if (event.effects.elementBonus[element]) {
+        return mod * event.effects.elementBonus[element];
+      }
+      return mod;
+    }, 1);
+
+    // 評判による修正
+    const reputationModifier = 0.5 + (gameState.reputation[faction] / 100);
+
+    return baseElementDemand * seasonModifier * eventModifier * reputationModifier;
+  };
+
+
 
   // 魔術書の販売処理
   const handleSellBook = (bookId, faction) => {
     const book = gameState.inventory.find(b => b.id === bookId);
     if (!book || book.quantity <= 0) return;
   
-    // 属性に基づく需要の計算
+    // 属性に基づく基本需要の計算
     const element = MAGIC_ELEMENTS[book.element];
-    const demandMultiplier = faction === 'human' ? element.humanDemand : element.monsterDemand;
+    const baseDemand = faction === 'human' ? element.humanDemand : element.monsterDemand;
+    
+    // 状況による需要補正を計算
     const situationalDemand = calculateSituationalDemand(gameState, book.element, faction);
-    const finalPrice = Math.floor(book.basePrice * demandMultiplier * situationalDemand * (1 + gameState.marketTrend));
+    
+    // 季節による補正
+    const seasonModifier = SEASONS[gameState.currentSeason].elementModifiers[book.element];
+    
+    // 評判による価格補正（評判が高いほど高値で買い取ってもらえる）
+    const reputationModifier = 0.8 + (gameState.reputation[faction] / 250); // 0.8 ~ 1.2の範囲
+  
+    // 品質による価格補正
+    const qualityModifier = book.quality;
+  
+    // 最終価格の計算
+    const finalPrice = Math.floor(
+      book.basePrice * 
+      baseDemand * 
+      situationalDemand * 
+      seasonModifier * 
+      reputationModifier * 
+      qualityModifier * 
+      (1 + gameState.marketTrend)
+    );
   
     setGameState(prev => ({
       ...prev,
@@ -278,37 +424,59 @@ const MagicMerchantGame = () => {
       monsterPower: faction === 'monster'
         ? Math.min(100, 100 - (prev.humanPower - book.power))
         : Math.max(0, 100 - (prev.humanPower + book.power)),
+      // ここを修正: creationLevelで比較
       inventory: prev.inventory.map(item =>
-        item.id === bookId && item.quality === book.quality && item.element === book.element
+        item.id === bookId && 
+        item.creationLevel === book.creationLevel && 
+        item.element === book.element
           ? { ...item, quantity: item.quantity - 1 }
           : item
-      )
+      ),
+      // 評判の更新
+      reputation: {
+        ...prev.reputation,
+        [faction]: Math.min(100, prev.reputation[faction] + (book.quality * 0.1)) // 品質に応じて評判も上昇
+      }
     }));
   };
 
-  const calculateSituationalDemand = (gameState, element, faction) => {
-    let demand = 1.0;
-    
-    // 勢力バランスによる補正
-    if (faction === 'human' && gameState.humanPower < 40) {
-      demand *= 1.2; // 劣勢時は需要増加
-    } else if (faction === 'monster' && gameState.humanPower > 60) {
-      demand *= 1.2;
-    }
+// Game.jsx内のcalculateSituationalDemand関数を更新
+
+const calculateSituationalDemand = (gameState, element, faction) => {
+  let demand = 1.0;
   
-    // 属性相性による補正
-    switch (element) {
-      case 'FIRE':
-        demand *= gameState.humanPower < 50 ? 1.3 : 0.8; // 人間が劣勢のとき火属性の需要増加
-        break;
-      case 'ICE':
-        demand *= Math.abs(gameState.humanPower - 50) < 20 ? 1.2 : 0.9; // 均衡時に氷属性の需要増加
-        break;
-      // 他の属性も同様に追加
-    }
-  
-    return demand;
-  };
+  // 勢力バランスによる補正
+  if (faction === 'human' && gameState.humanPower < 40) {
+    demand *= 1.2; // 劣勢時は需要増加
+  } else if (faction === 'monster' && gameState.humanPower > 60) {
+    demand *= 1.2;
+  }
+
+  // 属性相性による補正
+  switch (element) {
+    case 'FIRE':
+      demand *= gameState.humanPower < 50 ? 1.3 : 0.8; // 人間が劣勢のとき火属性の需要増加
+      break;
+    case 'ICE':
+      demand *= Math.abs(gameState.humanPower - 50) < 20 ? 1.2 : 0.9; // 均衡時に氷属性の需要増加
+      break;
+    case 'WIND':
+      demand *= gameState.humanPower > 60 ? 1.4 : 1.0; // モンスターが劣勢のとき風属性の需要増加
+      break;
+    case 'EARTH':
+      // 土属性は勢力バランスによらず安定した需要
+      demand *= Math.abs(gameState.humanPower - 50) < 30 ? 1.2 : 1.1;
+      break;
+    case 'LIGHTNING':
+      // 雷属性は極端な状況で需要が上昇
+      demand *= Math.abs(gameState.humanPower - 50) > 40 ? 1.5 : 1.1;
+      break;
+    default:
+      break;
+  }
+
+  return demand;
+};
 
   // ゲームの再起動
   const handleRestart = () => {

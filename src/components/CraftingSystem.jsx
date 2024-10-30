@@ -10,30 +10,89 @@ import {
 } from '../constants/magicSystem';
 
 const CraftingSystem = ({ gameState, setGameState }) => {
+  // ステート定義
   const { level, exp, progress, addExp } = useCraftingLevel();
   const [showCraftingEffect, setShowCraftingEffect] = useState(false);
+  const [showLevelUpEffect, setShowLevelUpEffect] = useState(false);
+  const [showUnlockNotification, setShowUnlockNotification] = useState(null);
+  const [lastLevel, setLastLevel] = useState(level);
   const [materials, setMaterials] = useState(
     Object.keys(MATERIALS).reduce((acc, key) => ({ ...acc, [key]: 0 }), {})
   );
   const [craftingQueue, setCraftingQueue] = useState([]);
 
-  // レベルに応じて利用可能なレシピを取得
-  const getAvailableRecipes = () => {
-    const availableElements = Object.entries(LEVEL_REQUIREMENTS.MAGIC_TIERS)
-      .filter(([_, tier]) => tier.level <= level)
-      .flatMap(([_, tier]) => tier.elements);
-
-    const availableRanks = Object.entries(LEVEL_REQUIREMENTS.BOOK_RANKS)
-      .filter(([_, rank]) => rank.level <= level)
-      .map(([key, _]) => key);
-
-    return Object.entries(RECIPES).filter(([_, recipe]) => {
-      return availableElements.includes(recipe.element) && 
-             availableRanks.includes(recipe.rank) &&
-             recipe.levelRequired <= level;
-    });
+  // サブコンポーネント: レベル情報表示
+  const LevelInfoSection = ({ level, progress }) => {
+    const getNextUnlocks = () => {
+      const nextMagicUnlock = Object.entries(LEVEL_REQUIREMENTS.MAGIC_TIERS)
+        .find(([_, tier]) => tier.level > level);
+      
+      const nextRankUnlock = Object.entries(LEVEL_REQUIREMENTS.BOOK_RANKS)
+        .find(([_, rank]) => rank.level > level);
+  
+      return { nextMagicUnlock, nextRankUnlock };
+    };
+  
+    const { nextMagicUnlock, nextRankUnlock } = getNextUnlocks();
+  
+    return (
+      <div className="bg-white rounded-lg shadow-sm p-4">
+        <div className="flex items-center justify-between mb-2">
+          <h3 className="text-lg font-medium text-gray-800">魔術書作成レベル: {level}</h3>
+          <span className="text-sm text-gray-600">次のレベルまで: {Math.floor(progress)}%</span>
+        </div>
+        
+        <div className="w-full bg-gray-200 rounded-full h-2 mb-4">
+          <div
+            className="bg-purple-500 h-2 rounded-full transition-all duration-500"
+            style={{ width: `${progress}%` }}
+          />
+        </div>
+  
+        <div className="mb-4">
+          <h4 className="text-sm font-medium text-gray-700 mb-2">利用可能な属性:</h4>
+          <div className="flex flex-wrap gap-2">
+            {Object.entries(LEVEL_REQUIREMENTS.MAGIC_TIERS)
+              .filter(([_, tier]) => tier.level <= level)
+              .flatMap(([_, tier]) => tier.elements)
+              .map(element => {
+                const elementInfo = MAGIC_ELEMENTS[element];
+                return (
+                  <span 
+                    key={element}
+                    className={`${elementInfo.bgColor} ${elementInfo.color} px-2 py-1 rounded text-sm flex items-center gap-1`}
+                  >
+                    {elementInfo.icon} {elementInfo.name}
+                  </span>
+                );
+              })}
+          </div>
+        </div>
+  
+        {(nextMagicUnlock || nextRankUnlock) && (
+          <div className="text-sm text-gray-600">
+            <h4 className="font-medium text-gray-700 mb-1">次の解放:</h4>
+            <ul className="space-y-1">
+              {nextMagicUnlock && (
+                <li className="flex items-center gap-1">
+                  <span className="text-purple-500">Lv.{nextMagicUnlock[1].level}</span>
+                  <span>- {nextMagicUnlock[1].description}</span>
+                </li>
+              )}
+              {nextRankUnlock && (
+                <li className="flex items-center gap-1">
+                  <span className="text-purple-500">Lv.{nextRankUnlock[1].level}</span>
+                  <span>- {nextRankUnlock[1].description}作成可能</span>
+                </li>
+              )}
+            </ul>
+          </div>
+        )}
+      </div>
+    );
   };
 
+  // サブコンポーネント: 素材アイテム
   const MaterialItem = ({ material, materials, gameState, buyMaterial, calculateMaterialPrice }) => (
     <div className="bg-gray-50 p-2 rounded">
       <div className="flex justify-between items-center">
@@ -57,7 +116,60 @@ const CraftingSystem = ({ gameState, setGameState }) => {
     </div>
   );
 
-  const RecipeItem = ({ recipe, recipeId, materials, level, startCrafting }) => {
+  // ヘルパー関数
+  const getAvailableRecipes = () => {
+    const availableElements = Object.entries(LEVEL_REQUIREMENTS.MAGIC_TIERS)
+      .filter(([_, tier]) => tier.level <= level)
+      .flatMap(([_, tier]) => tier.elements);
+
+    const availableRanks = Object.entries(LEVEL_REQUIREMENTS.BOOK_RANKS)
+      .filter(([_, rank]) => rank.level <= level)
+      .map(([key, _]) => key);
+
+    return Object.entries(RECIPES).filter(([_, recipe]) => {
+      return availableElements.includes(recipe.element) && 
+             availableRanks.includes(recipe.rank) &&
+             recipe.levelRequired <= level;
+    });
+  };
+
+  const getCraftingTimeReduction = () => {
+    return Math.max(0.5, 1 - (level * 0.05));
+  };
+
+  const getQualityBonus = () => {
+    return 1 + (level * 0.1);
+  };
+
+  const calculateMaterialPrice = (material) => {
+    return Math.round(material.basePrice * (1 + gameState.marketTrend * material.marketInfluence));
+  };
+
+  // アクション関数
+  const showCompletionEffect = () => {
+    setShowCraftingEffect(true);
+    setTimeout(() => setShowCraftingEffect(false), 2000);
+  };
+
+  const buyMaterial = (materialId) => {
+    const material = MATERIALS[materialId];
+    const price = calculateMaterialPrice(material);
+
+    if (gameState.gold < price) return;
+
+    setGameState(prev => ({
+      ...prev,
+      gold: prev.gold - price
+    }));
+
+    setMaterials(prev => ({
+      ...prev,
+      [materialId]: prev[materialId] + 1
+    }));
+  };
+
+  // RecipeItemコンポーネント（CraftingSystem内に追加）
+const RecipeItem = ({ recipe, recipeId, materials, level, startCrafting }) => {
     const isLocked = recipe.levelRequired > level;
     const element = MAGIC_ELEMENTS[recipe.element];
   
@@ -105,40 +217,6 @@ const CraftingSystem = ({ gameState, setGameState }) => {
     );
   };
 
-  const getCraftingTimeReduction = () => {
-    return Math.max(0.5, 1 - (level * 0.05)); // レベルごとに5%短縮（最大50%まで）
-  };
-
-  const getQualityBonus = () => {
-    return 1 + (level * 0.1); // レベルごとに10%ずつ品質向上
-  };
-
-  const showCompletionEffect = () => {
-    setShowCraftingEffect(true);
-    setTimeout(() => setShowCraftingEffect(false), 2000);
-  };
-
-  const calculateMaterialPrice = (material) => {
-    return Math.round(material.basePrice * (1 + gameState.marketTrend * material.marketInfluence));
-  };
-
-  const buyMaterial = (materialId) => {
-    const material = MATERIALS[materialId];
-    const price = calculateMaterialPrice(material);
-
-    if (gameState.gold < price) return;
-
-    setGameState(prev => ({
-      ...prev,
-      gold: prev.gold - price
-    }));
-
-    setMaterials(prev => ({
-      ...prev,
-      [materialId]: prev[materialId] + 1
-    }));
-  };
-
   const startCrafting = (recipeId) => {
     const recipe = RECIPES[recipeId];
     if (!recipe || recipe.levelRequired > level) return;
@@ -157,10 +235,7 @@ const CraftingSystem = ({ gameState, setGameState }) => {
       return newMaterials;
     });
 
-    // レベルに応じた作成時間の計算
     const adjustedCraftingTime = recipe.craftingTime * getCraftingTimeReduction();
-
-    // 作成キューに追加
     setCraftingQueue(prev => [...prev, {
       recipeId,
       startTime: Date.now(),
@@ -169,7 +244,75 @@ const CraftingSystem = ({ gameState, setGameState }) => {
     }]);
   };
 
-  // 作成キューの処理
+  const handleCraftingComplete = (completedItems) => {
+    setGameState(prev => ({
+      ...prev,
+      inventory: completedItems.reduce((inv, item) => {
+        const qualityBonus = getQualityBonus();
+        const element = MAGIC_ELEMENTS[item.recipe.element];
+        const power = Math.floor(item.recipe.basePower * qualityBonus * element.basePower);
+
+        const newBook = {
+          id: item.recipeId,
+          name: item.recipe.name,
+          element: item.recipe.element,
+          basePrice: Math.floor(power * 20),
+          power: power,
+          creationLevel: level,
+          quality: qualityBonus,
+          quantity: 1,
+          crafted: true,
+          description: item.recipe.description
+        };
+
+        const existingBook = inv.find(b => 
+          b.id === item.recipeId && 
+          b.creationLevel === level && 
+          b.element === item.recipe.element
+        );
+
+        if (existingBook) {
+          return inv.map(b => 
+            b.id === item.recipeId && 
+            b.creationLevel === level && 
+            b.element === item.recipe.element
+              ? { ...b, quantity: b.quantity + 1 }
+              : b
+          );
+        }
+        return [...inv, newBook];
+      }, prev.inventory)
+    }));
+  };
+
+  // エフェクト
+  useEffect(() => {
+    if (level > lastLevel) {
+      setShowLevelUpEffect(true);
+      setLastLevel(level);
+      
+      const newMagics = Object.entries(LEVEL_REQUIREMENTS.MAGIC_TIERS)
+        .filter(([_, tier]) => tier.level === level)
+        .flatMap(([_, tier]) => tier.elements);
+        
+      const newRanks = Object.entries(LEVEL_REQUIREMENTS.BOOK_RANKS)
+        .filter(([_, rank]) => rank.level === level)
+        .map(([_, rank]) => rank.description);
+
+      if (newMagics.length > 0 || newRanks.length > 0) {
+        setShowUnlockNotification({
+          magics: newMagics.map(element => MAGIC_ELEMENTS[element].name),
+          ranks: newRanks
+        });
+      }
+
+      setTimeout(() => {
+        setShowLevelUpEffect(false);
+        setShowUnlockNotification(null);
+      }, 3000);
+    }
+  }, [level, lastLevel]);
+
   useEffect(() => {
     if (craftingQueue.length === 0) return;
 
@@ -195,54 +338,16 @@ const CraftingSystem = ({ gameState, setGameState }) => {
           showCompletionEffect();
         });
 
-        setGameState(prev => ({
-          ...prev,
-          inventory: completedItems.reduce((inv, item) => {
-            const qualityBonus = getQualityBonus();
-            const element = MAGIC_ELEMENTS[item.recipe.element];
-            const power = Math.floor(item.recipe.basePower * qualityBonus * element.basePower);
-
-            const newBook = {
-              id: item.recipeId,
-              name: item.recipe.name,
-              element: item.recipe.element,
-              basePrice: Math.floor(power * 20),
-              power: power,
-              quality: level,
-              quantity: 1,
-              crafted: true,
-              description: item.recipe.description
-            };
-
-            const existingBook = inv.find(b => 
-              b.id === item.recipeId && 
-              b.quality === level && 
-              b.element === item.recipe.element
-            );
-
-            if (existingBook) {
-              return inv.map(b => 
-                b.id === item.recipeId && 
-                b.quality === level && 
-                b.element === item.recipe.element
-                  ? { ...b, quantity: b.quantity + 1 }
-                  : b
-              );
-            }
-            return [...inv, newBook];
-          }, prev.inventory)
-        }));
+        handleCraftingComplete(completedItems);
       }
     }, 100);
 
     return () => clearInterval(timer);
-  }, [craftingQueue, setGameState, level, addExp]);
+  }, [craftingQueue, addExp]);
 
-  // MaterialItemコンポーネントとRecipeItemコンポーネントは変更なし...
-
+  // レンダリング
   return (
     <div className="space-y-4">
-      {/* 作成キュー表示 */}
       {craftingQueue.length > 0 && (
         <div className="bg-white rounded-lg shadow-sm p-3">
           <div className="space-y-2">
@@ -278,61 +383,73 @@ const CraftingSystem = ({ gameState, setGameState }) => {
         </div>
       )}
 
-      {/* レベル表示 */}
-      <div className="bg-white rounded-lg shadow-sm p-3">
-        <div className="flex items-center justify-between mb-1">
-          <h3 className="text-sm font-medium">魔術書作成レベル: {level}</h3>
-          <span className="text-xs text-gray-600">次のレベルまで: {Math.floor(progress)}%</span>
-        </div>
-        <div className="w-full bg-gray-200 rounded-full h-1.5">
-          <div
-            className="bg-purple-500 h-1.5 rounded-full transition-all duration-500"
-            style={{ width: `${progress}%` }}
-          />
-        </div>
-      </div>
+      <LevelInfoSection level={level} progress={progress} />
 
-      {/* 素材とレシピセクション */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-  <div className="bg-white rounded-lg shadow-sm p-3">
-    <h2 className="text-base font-bold mb-3 text-gray-800">素材購入</h2>
-    <div className="space-y-3">
-      {Object.values(MATERIALS).map(material => (
-        <MaterialItem 
-          key={material.id}
-          material={material}
-          materials={materials}
-          gameState={gameState}
-          buyMaterial={buyMaterial}
-          calculateMaterialPrice={calculateMaterialPrice}
-        />
-      ))}
-    </div>
-  </div>
+        <div className="bg-white rounded-lg shadow-sm p-3">
+          <h2 className="text-base font-bold mb-3 text-gray-800">素材購入</h2>
+          <div className="space-y-3">
+            {Object.values(MATERIALS).map(material => (
+              <MaterialItem 
+                key={material.id}
+                material={material}
+                materials={materials}
+                gameState={gameState}
+                buyMaterial={buyMaterial}
+                calculateMaterialPrice={calculateMaterialPrice}
+              />
+            ))}
+          </div>
+        </div>
 
-  <div className="bg-white rounded-lg shadow-sm p-3">
-    <h2 className="text-base font-bold mb-3 text-gray-800">魔術書作成</h2>
-    <div className="space-y-3">
-      {getAvailableRecipes().map(([recipeId, recipe]) => (
-        <RecipeItem 
-          key={recipeId} 
-          recipe={recipe} 
-          recipeId={recipeId}
-          materials={materials}
-          level={level}
-          startCrafting={startCrafting}
-        />
-      ))}
-    </div>
+        <div className="bg-white rounded-lg shadow-sm p-3">
+  <h2 className="text-base font-bold mb-3 text-gray-800">魔術書作成</h2>
+  <div className="space-y-3">
+    {getAvailableRecipes().map(([recipeId, recipe]) => (
+      <RecipeItem 
+        key={recipeId} 
+        recipe={recipe} 
+        recipeId={recipeId}
+        materials={materials}
+        level={level}
+        startCrafting={startCrafting}
+      />
+    ))}
   </div>
 </div>
+      </div>
 
-      {/* 完成エフェクト */}
+      {/* エフェクト表示 */}
       {showCraftingEffect && (
         <div className="fixed inset-0 flex items-center justify-center pointer-events-none z-50">
           <div className="animate-craftComplete bg-purple-500 text-white px-6 py-3 rounded-lg shadow-lg">
             魔術書が完成しました！
           </div>
+        </div>
+      )}
+
+      {showLevelUpEffect && (
+        <div className="fixed inset-0 flex items-center justify-center pointer-events-none z-50">
+          <div className="animate-levelUp bg-purple-500 text-white px-6 py-3 rounded-lg shadow-lg text-center">
+            <div className="text-xl font-bold mb-2">レベルアップ！</div>
+            <div className="text-lg">レベル {level} に到達しました！</div>
+          </div>
+        </div>
+      )}
+
+      {showUnlockNotification && (
+        <div className="fixed top-4 right-4 z-50 bg-purple-100 border-l-4 border-purple-500 p-4 rounded shadow-lg max-w-sm">
+          <div className="font-bold text-purple-800 mb-2">新要素解放！</div>
+          {showUnlockNotification.magics.length > 0 && (
+            <div className="text-sm text-purple-700">
+              新しい属性: {showUnlockNotification.magics.join(', ')}
+            </div>
+          )}
+          {showUnlockNotification.ranks.length > 0 && (
+            <div className="text-sm text-purple-700">
+              新しいランク: {showUnlockNotification.ranks.join(', ')}
+            </div>
+          )}
         </div>
       )}
     </div>

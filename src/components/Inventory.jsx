@@ -12,6 +12,13 @@ const Inventory = ({ gold, inventory, marketTrend, onSell }) => {
     setTimeout(() => setNotification(null), 3000);
   };
 
+  const calculatePrice = (book, faction) => {
+    const element = MAGIC_ELEMENTS[book.element];
+    const baseDemand = faction === 'human' ? element.humanDemand : element.monsterDemand;
+    const qualityModifier = book.quality;
+    return Math.floor(book.basePrice * baseDemand * qualityModifier * (1 + marketTrend));
+  };
+
   // 販売処理
   const handleSell = (book, faction) => {
     if (!book || book.quantity <= 0) {
@@ -81,18 +88,29 @@ const Inventory = ({ gold, inventory, marketTrend, onSell }) => {
                       </div>
                     </div>
                     <div className="text-right">
-                      <div className="text-lg font-bold text-gray-700">
-                        {Math.floor(book.basePrice * (1 + marketTrend))}G
-                      </div>
-                      <div className="flex items-center gap-2 text-sm">
-                        <div className={getDemandStyle(book, 'human')}>
-                          人間需要 {element?.humanDemand >= 1 ? <ArrowUp className="inline w-4 h-4" /> : <ArrowDown className="inline w-4 h-4" />}
-                        </div>
-                        <div className={getDemandStyle(book, 'monster')}>
-                          魔物需要 {element?.monsterDemand >= 1 ? <ArrowUp className="inline w-4 h-4" /> : <ArrowDown className="inline w-4 h-4" />}
-                        </div>
-                      </div>
-                    </div>
+  <div className="flex flex-col gap-1">
+    <div className="text-sm text-gray-600">
+      人間価格: 
+      <span className="font-bold text-blue-600 ml-1">
+        {calculatePrice(book, 'human')}G
+      </span>
+    </div>
+    <div className="text-sm text-gray-600">
+      魔物価格: 
+      <span className="font-bold text-red-600 ml-1">
+        {calculatePrice(book, 'monster')}G
+      </span>
+    </div>
+  </div>
+  <div className="flex items-center gap-2 text-xs mt-1">
+    <div className={getDemandStyle(book, 'human')}>
+      人間需要 {element?.humanDemand >= 1 ? <ArrowUp className="inline w-3 h-3" /> : <ArrowDown className="inline w-3 h-3" />}
+    </div>
+    <div className={getDemandStyle(book, 'monster')}>
+      魔物需要 {element?.monsterDemand >= 1 ? <ArrowUp className="inline w-3 h-3" /> : <ArrowDown className="inline w-3 h-3" />}
+    </div>
+  </div>
+</div>
                   </div>
                   <div className="flex gap-2 mt-2">
                     <button
