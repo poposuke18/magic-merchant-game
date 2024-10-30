@@ -386,57 +386,34 @@ const MagicMerchantGame = () => {
   // 魔術書の販売処理
   const handleSellBook = (bookId, faction) => {
     const book = gameState.inventory.find(b => b.id === bookId);
+    
     if (!book || book.quantity <= 0) return;
   
-    // 属性に基づく基本需要の計算
-    const element = MAGIC_ELEMENTS[book.element];
-    const baseDemand = faction === 'human' ? element.humanDemand : element.monsterDemand;
-    
-    // 状況による需要補正を計算
-    const situationalDemand = calculateSituationalDemand(gameState, book.element, faction);
-    
-    // 季節による補正
-    const seasonModifier = SEASONS[gameState.currentSeason].elementModifiers[book.element];
-    
-    // 評判による価格補正（評判が高いほど高値で買い取ってもらえる）
-    const reputationModifier = 0.8 + (gameState.reputation[faction] / 250); // 0.8 ~ 1.2の範囲
+    const calculateFinalPrice = (book, faction) => {
+      const element = MAGIC_ELEMENTS[book.element];
+      const baseDemand = faction === 'human' ? element.humanDemand : element.monsterDemand;
+      const marketModifier = 1 + gameState.marketTrend;
+      
+      // 基本価格にはすでに品質が含まれているので、
+      // ここでは需要と市場変動のみを考慮
+      return Math.floor(book.basePrice * baseDemand * marketModifier);
+    };
   
-    // 品質による価格補正
-    const qualityModifier = book.quality;
-  
-    // 最終価格の計算
-    const finalPrice = Math.floor(
-      book.basePrice * 
-      baseDemand * 
-      situationalDemand * 
-      seasonModifier * 
-      reputationModifier * 
-      qualityModifier * 
-      (1 + gameState.marketTrend)
-    );
+    const finalPrice = calculateFinalPrice(book, faction);
+    // 影響力も品質に応じて変化
+    const powerChange = book.power;
   
     setGameState(prev => ({
       ...prev,
       gold: prev.gold + finalPrice,
       humanPower: faction === 'human' 
-        ? Math.min(100, prev.humanPower + book.power)
-        : Math.max(0, prev.humanPower - book.power),
-      monsterPower: faction === 'monster'
-        ? Math.min(100, 100 - (prev.humanPower - book.power))
-        : Math.max(0, 100 - (prev.humanPower + book.power)),
-      // ここを修正: creationLevelで比較
+        ? Math.min(100, prev.humanPower + powerChange)
+        : Math.max(0, prev.humanPower - powerChange),
       inventory: prev.inventory.map(item =>
-        item.id === bookId && 
-        item.creationLevel === book.creationLevel && 
-        item.element === book.element
+        item.id === bookId
           ? { ...item, quantity: item.quantity - 1 }
           : item
-      ),
-      // 評判の更新
-      reputation: {
-        ...prev.reputation,
-        [faction]: Math.min(100, prev.reputation[faction] + (book.quality * 0.1)) // 品質に応じて評判も上昇
-      }
+      )
     }));
   };
 

@@ -2,6 +2,8 @@
 import React, { useState, useEffect } from 'react';
 import { Timer, Lock } from 'lucide-react';
 import { useCraftingLevel } from '../hooks/useCraftingLevel';
+import DebugPanel from './DebugPanel';  // パスは実際の構造に合わせて調整してください
+
 import { 
   MATERIALS, 
   RECIPES, 
@@ -245,38 +247,60 @@ const RecipeItem = ({ recipe, recipeId, materials, level, startCrafting }) => {
   };
 
   const handleCraftingComplete = (completedItems) => {
+    // 品質計算を修正
+    const calculateQuality = (level) => {
+      // 5レベルごとに0.2ずつ上昇（見やすい数値に）
+      const qualityBonus = Math.floor(level / 5) * 0.2;
+      return 1 + qualityBonus;
+    };
+  
+    // パワー計算を修正（品質による補正を明確に）
+    const calculatePower = (basePower, element, quality) => {
+      const elementPower = MAGIC_ELEMENTS[element].basePower;
+      // 品質が威力に与える影響を強化
+      return Math.floor(basePower * elementPower * quality);
+    };
+  
+    // 価格計算を修正（品質による補正を強化）
+    const calculateBasePrice = (power, quality) => {
+      // 品質が価格に与える影響を強化
+      return Math.floor(power * 20 * quality);
+    };
+  
     setGameState(prev => ({
       ...prev,
       inventory: completedItems.reduce((inv, item) => {
-        const qualityBonus = getQualityBonus();
         const element = MAGIC_ELEMENTS[item.recipe.element];
-        const power = Math.floor(item.recipe.basePower * qualityBonus * element.basePower);
-
+        const quality = calculateQuality(level);
+        const power = calculatePower(item.recipe.basePower, item.recipe.element, quality);
+        
         const newBook = {
           id: item.recipeId,
           name: item.recipe.name,
           element: item.recipe.element,
-          basePrice: Math.floor(power * 20),
+          basePrice: calculateBasePrice(power, quality),
           power: power,
-          creationLevel: level,
-          quality: qualityBonus,
+          level: level,
+          quality: quality,
           quantity: 1,
           crafted: true,
           description: item.recipe.description
         };
-
-        const existingBook = inv.find(b => 
-          b.id === item.recipeId && 
-          b.creationLevel === level && 
-          b.element === item.recipe.element
-        );
-
+  
+        const existingBook = inv.find(b => b.id === item.recipeId);
+  
         if (existingBook) {
           return inv.map(b => 
-            b.id === item.recipeId && 
-            b.creationLevel === level && 
-            b.element === item.recipe.element
-              ? { ...b, quantity: b.quantity + 1 }
+            b.id === item.recipeId
+              ? { 
+                  ...b, 
+                  quantity: b.quantity + 1,
+                  // 常に最新のレベルと品質を反映
+                  quality: quality,
+                  power: power,
+                  level: level,
+                  basePrice: calculateBasePrice(power, quality)
+                }
               : b
           );
         }
@@ -452,6 +476,11 @@ const RecipeItem = ({ recipe, recipeId, materials, level, startCrafting }) => {
           )}
         </div>
       )}
+
+    {process.env.NODE_ENV === 'development' && (
+      <DebugPanel addExp={addExp} />
+    )}
+
     </div>
   );
 };
