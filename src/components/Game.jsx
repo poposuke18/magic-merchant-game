@@ -511,6 +511,8 @@ const calculateSituationalDemand = (gameState, element, faction) => {
             <CraftingSystem 
               gameState={gameState}
               setGameState={setGameState}
+              onSell={handleSellBook}  // これを追加
+
             />
             <EventManager 
               gameState={gameState}

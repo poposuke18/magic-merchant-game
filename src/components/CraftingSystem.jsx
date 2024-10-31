@@ -4,6 +4,7 @@ import { Timer, Lock } from 'lucide-react';
 import { useCraftingLevel } from '../hooks/useCraftingLevel';
 import DebugPanel from './DebugPanel';  
 import CompactCraftingSystem from './CompactCraftingSystem';
+import AutoProductionSystem from './AutoProductionSystem';
 
 
 import { 
@@ -13,7 +14,8 @@ import {
   LEVEL_REQUIREMENTS 
 } from '../constants/magicSystem';
 
-const CraftingSystem = ({ gameState, setGameState }) => {
+const CraftingSystem = ({ gameState, setGameState, onSell }) => {  // onSellを追加
+
   // ステート定義
   const { level, exp, progress, addExp } = useCraftingLevel();
   const [showCraftingEffect, setShowCraftingEffect] = useState(false);
@@ -24,6 +26,8 @@ const CraftingSystem = ({ gameState, setGameState }) => {
     Object.keys(MATERIALS).reduce((acc, key) => ({ ...acc, [key]: 0 }), {})
   );
   const [craftingQueue, setCraftingQueue] = useState([]);
+  const [activeTab, setActiveTab] = useState('manual');  // タブ切り替え用のステートを追加
+
 
   // サブコンポーネント: レベル情報表示
   const LevelInfoSection = ({ level, progress }) => {
@@ -410,16 +414,58 @@ const RecipeItem = ({ recipe, recipeId, materials, level, startCrafting }) => {
       )}
 
       <LevelInfoSection level={level} progress={progress} />
+
+
+<div className="flex space-x-2 mb-4">
+      <button
+        onClick={() => setActiveTab('manual')}
+        className={`flex items-center px-4 py-2 rounded-lg transition-colors ${
+          activeTab === 'manual'
+            ? 'bg-blue-500 text-white'
+            : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+        }`}
+      >
+        手動生産
+      </button>
+      <button
+        onClick={() => setActiveTab('auto')}
+        className={`flex items-center px-4 py-2 rounded-lg transition-colors ${
+          activeTab === 'auto'
+            ? 'bg-blue-500 text-white'
+            : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+        }`}
+      >
+        自動生産
+      </button>
+    </div>
+
+    {/* 手動生産タブ */}
+    {activeTab === 'manual' && (
       <CompactCraftingSystem 
-  materials={MATERIALS}
-  recipes={RECIPES}
-  level={level}
-  materialInventory={materials}  // materials を materialInventory として渡す
-  startCrafting={startCrafting}
-  buyMaterial={buyMaterial}
-  calculateMaterialPrice={calculateMaterialPrice}
-  gameState={gameState}
-/>
+        materials={MATERIALS}
+        recipes={RECIPES}
+        level={level}
+        materialInventory={materials}
+        startCrafting={startCrafting}
+        buyMaterial={buyMaterial}
+        calculateMaterialPrice={calculateMaterialPrice}
+        gameState={gameState}
+      />
+    )}
+
+    {/* 自動生産タブ */}
+    {activeTab === 'auto' && (
+      <AutoProductionSystem
+        level={level}
+        materials={MATERIALS}
+        recipes={RECIPES}
+        materialInventory={materials}
+        gameState={gameState}
+        buyMaterial={buyMaterial}
+        startCrafting={startCrafting}
+        onSell={onSell}  // handleSellBookの代わりにonSellを使用
+        />
+    )}
 
       {/* エフェクト表示 */}
       {showCraftingEffect && (
