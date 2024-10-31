@@ -2,7 +2,9 @@
 import React, { useState, useEffect } from 'react';
 import { Timer, Lock } from 'lucide-react';
 import { useCraftingLevel } from '../hooks/useCraftingLevel';
-import DebugPanel from './DebugPanel';  // パスは実際の構造に合わせて調整してください
+import DebugPanel from './DebugPanel';  
+import CompactCraftingSystem from './CompactCraftingSystem';
+
 
 import { 
   MATERIALS, 
@@ -408,40 +410,16 @@ const RecipeItem = ({ recipe, recipeId, materials, level, startCrafting }) => {
       )}
 
       <LevelInfoSection level={level} progress={progress} />
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-        <div className="bg-white rounded-lg shadow-sm p-3">
-          <h2 className="text-base font-bold mb-3 text-gray-800">素材購入</h2>
-          <div className="space-y-3">
-            {Object.values(MATERIALS).map(material => (
-              <MaterialItem 
-                key={material.id}
-                material={material}
-                materials={materials}
-                gameState={gameState}
-                buyMaterial={buyMaterial}
-                calculateMaterialPrice={calculateMaterialPrice}
-              />
-            ))}
-          </div>
-        </div>
-
-        <div className="bg-white rounded-lg shadow-sm p-3">
-  <h2 className="text-base font-bold mb-3 text-gray-800">魔術書作成</h2>
-  <div className="space-y-3">
-    {getAvailableRecipes().map(([recipeId, recipe]) => (
-      <RecipeItem 
-        key={recipeId} 
-        recipe={recipe} 
-        recipeId={recipeId}
-        materials={materials}
-        level={level}
-        startCrafting={startCrafting}
-      />
-    ))}
-  </div>
-</div>
-      </div>
+      <CompactCraftingSystem 
+  materials={MATERIALS}
+  recipes={RECIPES}
+  level={level}
+  materialInventory={materials}  // materials を materialInventory として渡す
+  startCrafting={startCrafting}
+  buyMaterial={buyMaterial}
+  calculateMaterialPrice={calculateMaterialPrice}
+  gameState={gameState}
+/>
 
       {/* エフェクト表示 */}
       {showCraftingEffect && (
