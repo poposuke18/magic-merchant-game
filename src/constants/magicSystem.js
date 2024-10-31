@@ -9,9 +9,9 @@ const MAGIC_ELEMENTS = {
       borderColor: 'border-red-500',
       icon: '🔥',
       basePower: 1.2,
-      description: '攻撃的な魔法。人間側で人気が高い',
-      humanDemand: 1.3,
-      monsterDemand: 0.7
+      description: '攻撃的な魔法。モンスター側で人気が高い',
+      humanDemand: 0.6,
+      monsterDemand: 1.2
     },
     ICE: {
       id: 'ICE',
@@ -33,9 +33,9 @@ const MAGIC_ELEMENTS = {
       borderColor: 'border-green-500',
       icon: '🌪️',
       basePower: 0.9,
-      description: '機動性の高い魔法。モンスター側で重宝される',
-      humanDemand: 0.8,
-      monsterDemand: 1.4
+      description: '機動性の高い魔法。人間側で重宝される',
+      humanDemand: 1.3,
+      monsterDemand: 0.7
     },
     EARTH: {
       id: 'EARTH',
@@ -69,7 +69,7 @@ const MATERIALS = {
     MAGIC_INK: {
       id: 'MAGIC_INK',
       name: '魔法の墨',
-      basePrice: 50,
+      basePrice: 40,
       marketInfluence: 0.8,
       description: '全ての魔術書に必要な基本素材',
       icon: '🖋️'
@@ -77,7 +77,7 @@ const MATERIALS = {
     ENCHANTED_PAPER: {
       id: 'ENCHANTED_PAPER',
       name: '魔法の紙',
-      basePrice: 30,
+      basePrice: 20,
       marketInfluence: 0.5,
       description: '全ての魔術書に必要な基本素材',
       icon: '📜'
@@ -86,7 +86,7 @@ const MATERIALS = {
     FLAME_ESSENCE: {
       id: 'FLAME_ESSENCE',
       name: '炎のエッセンス',
-      basePrice: 100,
+      basePrice: 80,
       marketInfluence: 1.2,
       element: 'FIRE',
       description: '火属性の魔術書に必要',
@@ -96,7 +96,7 @@ const MATERIALS = {
     FROST_CRYSTAL: {
       id: 'FROST_CRYSTAL',
       name: '氷の結晶',
-      basePrice: 90,
+      basePrice: 60,
       marketInfluence: 1.0,
       element: 'ICE',
       description: '氷属性の魔術書に必要',
@@ -266,16 +266,16 @@ const RECIPES = {
   // 属性ごとの特徴
   const ELEMENT_CHARACTERISTICS = {
     FIRE: {
-      strengths: ['人間側での高い需要', '安定した攻撃力'],
-      weaknesses: ['モンスター側での低い需要', '季節による需要変動']
+      strengths: ['モンスター側での高い需要', '安定した攻撃力'],
+      weaknesses: ['人間側での低い需要', '季節による需要変動']
     },
     ICE: {
       strengths: ['バランスの取れた需要', '安定した価格'],
       weaknesses: ['特に突出した特徴がない']
     },
     WIND: {
-      strengths: ['モンスター側での高い需要', '短い製作時間'],
-      weaknesses: ['やや低い基本威力', '人間側での低い需要']
+      strengths: ['人間側での高い需要', '短い製作時間'],
+      weaknesses: ['やや低い基本威力', 'モンスター側での低い需要']
     },
     EARTH: {
       strengths: ['両陣営での安定した需要', '高い基本威力'],

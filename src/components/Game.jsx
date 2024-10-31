@@ -14,7 +14,7 @@ import { SEASONS, SEASONAL_EVENTS, TIME_CONSTANTS } from '../constants/seasonSys
 const INITIAL_STATE = {
   HUMAN_POWER: 20,
   MONSTER_POWER: 80,
-  INITIAL_GOLD: 1000,
+  INITIAL_GOLD: 1500,
   MARKET_UPDATE_INTERVAL: 15000,
   EVENT_CHECK_INTERVAL: 30000
 };
@@ -118,7 +118,7 @@ const StartScreen = ({ onStart }) => {
 // GameOver コンポーネント
 const GameOver = ({ gameState, onRestart }) => (
   <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-b from-gray-900 to-gray-800 text-white">
-    <h1 className="text-4xl mb-8 font-bold">死の商人</h1>
+    <h1 className="text-4xl mb-8 font-bold">ゲームオーバー</h1>
     <div className="mb-8 text-center max-w-md">
       <p className="mb-4">あなたは均衡を崩してしまいました。</p>
       <p className="mb-4">永遠の争いを望んだ死の商人は、その役目を終えたのです。</p>
@@ -239,7 +239,7 @@ const MagicMerchantGame = () => {
     elapsedTime: 0,
 
     // 新しい状態
-    currentSeason: 'SPRING',
+    currentSeason: 'SUMMER',
     dayCount: 0,
     yearCount: 1,
     activeSeasonalEvents: [], // 現在発生中の季節イベント
